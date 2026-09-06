@@ -15,6 +15,7 @@ import {
   FilePlus2,
   FolderOpen,
   Save,
+  Printer,
   PanelLeft,
   PanelRight,
   Search,
@@ -40,6 +41,8 @@ import TabBar from "./workspace/TabBar";
 import OutlinePanel, { type Heading } from "./workspace/OutlinePanel";
 import Modal from "./components/Modal";
 import markaLogo from "../src-tauri/icons/marka.svg";
+import { useExport } from "./export/useExport";
+import type { ExportFormat } from "./export/document";
 
 type PreviewResult = {
   headings: Heading[];
@@ -133,6 +136,11 @@ export default function App() {
   const view = useRef<EditorView | null>(null);
   const current = useRef({ documents, workspace, preferences });
   current.current = { documents, workspace, preferences };
+  const exporter = useExport(
+    () => current.current.documents.active ?? null,
+    workspace?.id ?? null,
+    setNotice,
+  );
   const operation = useRef(false);
   const generation = useRef(0);
   const restoration = useRef<Promise<RestoredSession> | null>(null);
@@ -424,8 +432,11 @@ export default function App() {
       setNotice((error as Error).message ?? String(error));
     }
   };
-  const handlers = useRef({ exit, refresh });
-  handlers.current = { exit, refresh };
+  const printDocument = () => {
+    void exporter.run("print");
+  };
+  const handlers = useRef({ exit, refresh, printDocument });
+  handlers.current = { exit, refresh, printDocument };
   useEffect(() => {
     if (!native.nativeAvailable) return;
     let disposed = false;
@@ -454,6 +465,9 @@ export default function App() {
       listen("marka://exit-requested", () => {
         void handlers.current.exit();
       }),
+    );
+    install(
+      listen("marka://print-requested", () => handlers.current.printDocument()),
     );
     return () => {
       disposed = true;
@@ -582,8 +596,13 @@ export default function App() {
       }
     });
   };
-  const keyboard = useRef({ openFolder, closeTab, saveDocument });
-  keyboard.current = { openFolder, closeTab, saveDocument };
+  const keyboard = useRef({
+    openFolder,
+    closeTab,
+    saveDocument,
+    printDocument,
+  });
+  keyboard.current = { openFolder, closeTab, saveDocument, printDocument };
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (
@@ -602,6 +621,8 @@ export default function App() {
           .catch((error) => setNotice(error.message ?? String(error)));
       else if (key === "w" && now.documents.activeId)
         keyboard.current.closeTab(now.documents.activeId);
+      else if (key === "p" && now.documents.activeId)
+        keyboard.current.printDocument();
       else if (key === "f" && event.shiftKey) {
         setSidebar("search");
         requestAnimationFrame(() =>
@@ -741,6 +762,31 @@ export default function App() {
             }}
           >
             Save as
+          </button>
+          <select
+            aria-label="Export document"
+            title="Export current buffer without changing the source file"
+            value=""
+            disabled={!active || exporter.busy}
+            onChange={(event) => {
+              if (event.target.value)
+                void exporter.run(event.target.value as ExportFormat);
+            }}
+          >
+            <option value="">{exporter.busy ? "Preparing…" : "Export…"}</option>
+            <option value="pdf">PDF (.pdf)</option>
+            <option value="docx">Word (.docx)</option>
+            <option value="html">HTML (.html)</option>
+            <option value="txt">Plain text (.txt)</option>
+          </select>
+          <button
+            aria-label="Print document"
+            title={nativeTitle ?? "Print document (Ctrl/Cmd+P)"}
+            disabled={!active || exporter.busy || !native.nativeAvailable}
+            onClick={printDocument}
+          >
+            <Printer size={16} />
+            <span>Print</span>
           </button>
           <select
             aria-label="Color theme"

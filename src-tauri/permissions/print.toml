@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "print-document"
+description = "Print only the calling app-owned print webview. No workspace or filesystem access."
+commands.allow = ["print_current"]

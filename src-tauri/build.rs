@@ -11,6 +11,9 @@ fn main() {
             "read_asset",
             "save_session",
             "complete_exit",
+            "save_export",
+            "open_print_document",
+            "print_current",
         ]),
     ))
     .expect("failed to build Marka application manifest");

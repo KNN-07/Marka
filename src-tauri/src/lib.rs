@@ -1,3 +1,4 @@
+mod output;
 mod session;
 mod workspace;
 
@@ -155,6 +156,8 @@ fn complete_exit(app: tauri::AppHandle, latch: tauri::State<'_, ExitLatch>) {
 fn install_menu(app: &tauri::App) -> tauri::Result<()> {
     use tauri::menu::{Menu, MenuItem, PredefinedMenuItem as Native, Submenu};
     let quit = MenuItem::with_id(app, "marka-quit", "Quit Marka", true, Some("CmdOrCtrl+Q"))?;
+    let print = MenuItem::with_id(app, "marka-print", "Print…", true, Some("CmdOrCtrl+P"))?;
+    let file = Submenu::with_items(app, "File", true, &[&print])?;
     let application = Submenu::with_items(
         app,
         "Marka",
@@ -191,10 +194,23 @@ fn install_menu(app: &tauri::App) -> tauri::Result<()> {
         true,
         &[&Native::minimize(app, None)?, &Native::maximize(app, None)?],
     )?;
-    app.set_menu(Menu::with_items(app, &[&application, &edit, &window])?)?;
+    app.set_menu(Menu::with_items(
+        app,
+        &[&application, &file, &edit, &window],
+    )?)?;
     app.on_menu_event(|app, event| {
         if event.id().as_ref() == "marka-quit" {
             let _ = app.emit_to("main", "marka://exit-requested", ());
+        }
+        if event.id().as_ref() == "marka-print" {
+            if let Some(window) = app.webview_windows().values().find(|window| {
+                window.label().starts_with("print-") && window.is_focused().unwrap_or(false)
+            }) {
+                // App-owned event keeps font/image readiness and error handling in the print UI.
+                let _ = window.eval("window.dispatchEvent(new Event('marka:print'))");
+            } else {
+                let _ = app.emit_to("main", "marka://print-requested", ());
+            }
         }
     });
     Ok(())
@@ -213,7 +229,8 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                if !window.state::<ExitLatch>().0.load(Ordering::SeqCst) {
+                if window.label() == "main" && !window.state::<ExitLatch>().0.load(Ordering::SeqCst)
+                {
                     api.prevent_close();
                     let _ = window.emit("marka://exit-requested", ());
                 }
@@ -229,7 +246,10 @@ pub fn run() {
             search_workspace,
             read_asset,
             save_session,
-            complete_exit
+            complete_exit,
+            output::save_export,
+            output::open_print_document,
+            output::print_current
         ])
         .build(tauri::generate_context!())
         .expect("Unable to initialize Marka desktop application");

@@ -20,6 +20,7 @@
 - **Live preview:** source, split, and preview layouts; GFM tables and tasks, footnotes, syntax-highlighted code, local raster images, KaTeX math, and Mermaid diagrams.
 - **Deliberately safe MDX:** bundled declarative components and literal values—not document JavaScript or project imports.
 - **Save with context:** autosave for named documents, manual Save/Save As, revision-checked writes, external-change handling, and dirty-buffer close protection.
+- **Export and print:** PDF, Word documents, self-contained HTML, and plain text; a dedicated native print view keeps application controls off the page.
 - **Make it yours:** system/light/dark themes, resizable panes, and restored workspace tabs and preferences.
 
 Built with Tauri 2, React, TypeScript, CodeMirror 6, and Rust. Editing and bundled rendering work offline; your documents remain ordinary files in your chosen folder.
@@ -66,6 +67,25 @@ Supported components are `Callout`, `Badge`, and `Tabs` with direct `Tab` childr
 **Not a general-purpose MDX runtime:** imports/exports, executable expressions, spreads, custom components, event handlers, and document-provided styles are rejected. Invalid MDX displays diagnostics and retains that document's last good preview when available; source remains editable and saveable.
 
 Preview content is sanitized and rendered in a script-disabled sandbox. Remote images and workspace SVGs are not loaded; supported local raster images must stay within the selected workspace. Links do not navigate outside the preview. Mermaid is rendered by the bundled library, with configuration overrides rejected; it is not a route to execute document code. YAML frontmatter is preserved in source but does not become executable data or preview variables. Documents are limited to 5 MiB.
+
+## Export and print
+
+Use **Export…** in the top bar to create a copy of the active document:
+
+| Format | Output |
+| --- | --- |
+| PDF (`.pdf`) | Paginated, light-themed document with selectable prose, tables, code, and embedded images, diagrams, and equations. |
+| Word (`.docx`) | Editable paragraphs, lists, and tables; diagrams and equations are embedded images. |
+| HTML (`.html`) | Standalone page with styles, math fonts, and approved local images embedded. No server, CDN, or document scripts required. |
+| Plain text (`.txt`) | Readable text with list/table boundaries, code, image descriptions, and equation source. |
+
+Exports capture the **current buffer when you choose the format**, including unsaved edits. They do not save, rename, or replace the source tab. The desktop app opens a native Save dialog, so exports can go outside the workspace; browser mode downloads the generated file. Continue using **Save As** for Markdown/MDX source copies.
+
+Rendered exports use the same safe parser and scoped image loader as preview, but always render a fresh, light-themed document. Invalid MDX blocks export instead of silently using a stale preview. Rendering warnings remain visible in the output and are reported after export. All bundled Tabs panels are included as titled sections.
+
+Choose **Print** or **Ctrl/Cmd+P** in the desktop app to open a separate print view. Its Print button opens the operating system's print dialog after images and fonts are ready. Close that window to return to editing; printing does not change your source. Printer selection, paper settings, and cancellation belong to the system dialog.
+
+PDF and Word use document-oriented layouts rather than pixel-perfect copies of the screen. Diagrams and equations are embedded graphics; prose remains text. PDF places equations on separate lines; HTML and the native print view retain browser-style inline math. Output files are limited to 64 MiB. Native printing requires the desktop app and an available system print service.
 
 ## Develop
 

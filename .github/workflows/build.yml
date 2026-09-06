@@ -50,8 +50,8 @@ jobs:
       - run: npm ci
       - name: Build frontend
         run: npm run build
-      - name: Verify focused frontend behavior
-        run: npm test -- src/preview/pipeline.test.ts src/workspace/document-lifecycle.test.ts
+      - name: Verify frontend behavior and exports
+        run: npm test
       - name: Verify native filesystem behavior
         run: cargo test --locked --manifest-path src-tauri/Cargo.toml -- --nocapture
       - name: Build native packages

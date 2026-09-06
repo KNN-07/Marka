@@ -44,3 +44,25 @@ export const readAsset = (workspaceId: string, path: string) =>
 export const saveSession = (session: Session, workspaceId: string | null) =>
   invoke<void>("save_session", { session, workspaceId });
 export const completeExit = () => invoke<void>("complete_exit");
+
+export async function saveExport(
+  format: string,
+  name: string,
+  bytes: Uint8Array,
+): Promise<boolean> {
+  if (bytes.byteLength > 64 * 1024 * 1024)
+    throw new Error("Exports are limited to 64 MiB.");
+  const encodedName = encodeURIComponent(
+    Array.from(name).slice(0, 120).join(""),
+  );
+  return invoke<boolean>("save_export", bytes, {
+    headers: { "x-marka-format": format, "x-marka-name": encodedName },
+  });
+}
+
+export async function openPrintDocument(
+  title: string,
+  html: string,
+): Promise<void> {
+  return invoke<void>("open_print_document", { title, html });
+}

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-print-current"
+description = "Enables the print_current command without any pre-configured scope."
+commands.allow = ["print_current"]
+
+[[permission]]
+identifier = "deny-print-current"
+description = "Denies the print_current command without any pre-configured scope."
+commands.deny = ["print_current"]

@@ -1,0 +1,124 @@
+html,
+body {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+  background: #fff;
+  color: #26323b;
+}
+#print-controls {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid #dfe6e8;
+  background: #f4f7f8;
+  font:
+    14px/1.5 system-ui,
+    sans-serif;
+}
+#print-title {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+#print-status {
+  flex-basis: 100%;
+  color: #52616b;
+}
+#print-controls button {
+  border: 1px solid #bdcacc;
+  border-radius: 6px;
+  padding: 7px 18px;
+  background: #fff;
+  color: #26323b;
+  cursor: pointer;
+  font: inherit;
+}
+#print-controls button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+#print-controls button:focus-visible {
+  outline: 3px solid #087f79;
+  outline-offset: 2px;
+}
+#print-document,
+#print-document main {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+#print-document pre {
+  white-space: pre-wrap;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+#print-document img {
+  max-width: 100%;
+  height: auto;
+}
+@page {
+  size: A4;
+  margin: 18mm;
+}
+@media print {
+  #print-controls {
+    display: none !important;
+  }
+  html,
+  body,
+  #print-document,
+  #print-document main {
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+  img,
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .print-section-start,
+  .katex-display,
+  .katex,
+  .callout,
+  .export-tab {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+  thead {
+    display: table-header-group;
+  }
+  pre,
+  table,
+  blockquote {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+}

@@ -1,16 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { readAsset } from "../lib/native";
-import { resolveImagePath } from "./resources";
-import type {
-  RenderInput,
-  RenderResult,
-  ResourceOutput,
-  ResourceValue,
-  Heading,
-  Diagnostic,
-  Decoration,
-} from "./pipeline";
-import { renderMermaid } from "./mermaid";
+import type { Heading, Diagnostic, Decoration } from "./pipeline";
+import { renderDocument, type RenderCache } from "./render";
 import previewCss from "./preview.css?raw";
 import katexCss from "../generated/katex.css?raw";
 import lightHighlight from "highlight.js/styles/github.css?raw";
@@ -41,200 +31,93 @@ export default function PreviewPane(props: PreviewPaneProps) {
   const [failed, setFailed] = useState(false);
   const resultCallback = useRef(props.onResult);
   resultCallback.current = props.onResult;
-  const cache = useRef<{
-    identity: string;
-    images: Map<string, { url: string; bytes: number }>;
-    diagrams: Map<string, string>;
-  }>({ identity: "", images: new Map(), diagrams: new Map() });
+  const cache = useRef<RenderCache & { identity: string }>({
+    identity: "",
+    images: new Map(),
+    diagrams: new Map(),
+  });
   const identity = `${props.documentId}\u0000${props.workspaceId}\u0000${props.path}\u0000${props.refreshKey}`;
   useEffect(() => {
     if (cache.current.identity !== identity)
       cache.current = { identity, images: new Map(), diagrams: new Map() };
-    let current = true;
-    let worker: Worker | null = null;
-    let timer: number | undefined;
-    const clearTimer = () => {
-      window.clearTimeout(timer);
-      timer = undefined;
-    };
-    const die = (message: string) => {
-      if (!current) return;
-      clearTimer();
-      worker?.terminate();
-      worker = null;
-      setStatus(message);
-      setFailed(true);
-      resultCallback.current({
-        headings: [],
-        decorations: [],
-        diagnostics: [
-          {
-            from: 0,
-            to: Math.min(1, props.source.length),
-            severity: "error",
-            message,
-          },
-        ],
-      });
-    };
-    const arm = () => {
-      clearTimer();
-      timer = window.setTimeout(
-        () =>
-          die(
-            "Preview processing exceeded two seconds. Edit the source or choose Retry.",
-          ),
-        2000,
-      );
-    };
+    const controller = new AbortController();
     setFailed(false);
     setStatus("");
     const debounce = setTimeout(() => {
-      if (!current) return;
-      worker = new Worker(new URL("./preview.worker.ts", import.meta.url), {
-        type: "module",
-      });
-      worker.onerror = () =>
-        die("Preview worker failed. Edit the source or choose Retry.");
-      worker.onmessage = async (
-        event: MessageEvent<RenderResult | ResourceOutput>,
-      ) => {
-        const output = event.data;
-        if (
-          !current ||
-          output.documentId !== props.documentId ||
-          output.version !== props.version
-        )
-          return;
-        clearTimer();
-        if (output.kind === "result") {
-          resultCallback.current(output);
-          if (output.html !== null) {
-            const html = output.html;
-            setGoodPages((previous) => {
-              const pages = new Map(previous);
-              pages.delete(props.documentId);
-              pages.set(props.documentId, html);
-              let characters = 0;
-              for (const page of pages.values()) characters += page.length;
-              for (const [id, page] of pages) {
-                if (
-                  (pages.size <= 20 && characters <= 24 * 1024 * 1024) ||
-                  pages.size === 1
-                )
-                  break;
-                pages.delete(id);
-                characters -= page.length;
-              }
-              return pages;
-            });
-            setStatus(
-              output.diagnostics.length
-                ? `${output.diagnostics.length} preview warning${output.diagnostics.length === 1 ? "" : "s"}`
-                : "",
-            );
-            setFailed(false);
-          } else {
-            setStatus(output.diagnostics.map((d) => d.message).join(" "));
-            setFailed(true);
-          }
-          worker?.terminate();
-          worker = null;
-          return;
-        }
-        const resources: Record<string, ResourceValue> = {};
-        let imageBytes = 0;
-        const usedImages = new Set<string>(),
-          usedDiagrams = new Set<string>();
-        for (const request of output.requests) {
-          if (!current) return;
-          try {
-            if (request.kind === "image") {
-              if (!props.workspaceId)
-                throw new Error("Local images require a desktop workspace.");
-              const path = resolveImagePath(props.path, request.path);
-              usedImages.add(path);
-              let image = cache.current.images.get(path);
-              if (!image) {
-                const buffer = await readAsset(props.workspaceId, path);
-                if (!current) return;
-                if (
-                  buffer.byteLength > 10 * 1024 * 1024 ||
-                  imageBytes + buffer.byteLength > 20 * 1024 * 1024
-                )
-                  throw new Error(
-                    "Preview images exceed the 10 MiB per image / 20 MiB total limit.",
-                  );
-                const bytes = new Uint8Array(buffer);
-                const extension = path.split(".").pop()!.toLowerCase();
-                const mime =
-                  extension === "jpg" || extension === "jpeg"
-                    ? "jpeg"
-                    : extension;
-                let binary = "";
-                for (let offset = 0; offset < bytes.length; offset += 32768)
-                  binary += String.fromCharCode(
-                    ...bytes.subarray(offset, offset + 32768),
-                  );
-                image = {
-                  url: `data:image/${mime};base64,${btoa(binary)}`,
-                  bytes: buffer.byteLength,
-                };
-                cache.current.images.set(path, image);
-              }
-              imageBytes += image.bytes;
-              if (imageBytes > 20 * 1024 * 1024)
-                throw new Error("Preview images exceed 20 MiB total.");
-              resources[request.id] = { url: image.url };
-            } else {
-              const key = `${props.theme}\u0000${request.source}`;
-              usedDiagrams.add(key);
-              let url = cache.current.diagrams.get(key);
-              if (!url) {
-                url = await renderMermaid(
-                  request.source,
-                  props.theme,
-                  () => current,
-                );
-                if (!current) return;
-                cache.current.diagrams.set(key, url);
-              }
-              resources[request.id] = { url };
-            }
-          } catch (error) {
-            resources[request.id] = {
-              error: error instanceof Error ? error.message : String(error),
-            };
-          }
-        }
-        if (!current || !worker) return;
-        for (const key of cache.current.images.keys())
-          if (!usedImages.has(key)) cache.current.images.delete(key);
-        for (const key of cache.current.diagrams.keys())
-          if (!usedDiagrams.has(key)) cache.current.diagrams.delete(key);
-        arm();
-        worker.postMessage({
-          kind: "resources",
+      void renderDocument(
+        {
+          kind: "render",
           documentId: props.documentId,
           version: props.version,
-          resources,
+          format: props.format,
+          source: props.source,
+          theme: props.theme,
+        },
+        {
+          workspaceId: props.workspaceId,
+          path: props.path,
+          signal: controller.signal,
+          cache: cache.current,
+        },
+      )
+        .then((output) => {
+          if (controller.signal.aborted) return;
+          resultCallback.current(output);
+          if (output.html === null) {
+            setStatus(
+              output.diagnostics
+                .map((diagnostic) => diagnostic.message)
+                .join(" "),
+            );
+            setFailed(true);
+            return;
+          }
+          const html = output.html;
+          setGoodPages((previous) => {
+            const pages = new Map(previous);
+            pages.delete(props.documentId);
+            pages.set(props.documentId, html);
+            let characters = 0;
+            for (const page of pages.values()) characters += page.length;
+            for (const [id, page] of pages) {
+              if (
+                (pages.size <= 20 && characters <= 24 * 1024 * 1024) ||
+                pages.size === 1
+              )
+                break;
+              pages.delete(id);
+              characters -= page.length;
+            }
+            return pages;
+          });
+          setStatus(
+            output.diagnostics.length
+              ? `${output.diagnostics.length} preview warning${output.diagnostics.length === 1 ? "" : "s"}`
+              : "",
+          );
+          setFailed(false);
+        })
+        .catch((error: Error) => {
+          if (controller.signal.aborted) return;
+          setStatus(error.message);
+          setFailed(true);
+          resultCallback.current({
+            headings: [],
+            decorations: [],
+            diagnostics: [
+              {
+                from: 0,
+                to: Math.min(1, props.source.length),
+                severity: "error",
+                message: error.message,
+              },
+            ],
+          });
         });
-      };
-      arm();
-      worker.postMessage({
-        kind: "render",
-        documentId: props.documentId,
-        version: props.version,
-        format: props.format,
-        source: props.source,
-        theme: props.theme,
-      } satisfies RenderInput);
     }, 250);
     return () => {
-      current = false;
       clearTimeout(debounce);
-      clearTimer();
-      worker?.terminate();
+      controller.abort();
     };
   }, [
     props.documentId,

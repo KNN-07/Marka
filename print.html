@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Print — Marka</title>
+  </head>
+  <body>
+    <header id="print-controls">
+      <strong id="print-title">Print document</strong>
+      <button id="print-action" type="button" disabled>Print</button>
+      <button id="print-close" type="button">Close</button>
+      <span id="print-status" role="status" aria-live="polite"
+        >Preparing document…</span
+      >
+    </header>
+    <div id="print-document"></div>
+    <script type="module" src="/src/export/print.ts"></script>
+  </body>
+</html>
