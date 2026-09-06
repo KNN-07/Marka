@@ -39,6 +39,7 @@ import SearchPanel from "./workspace/SearchPanel";
 import TabBar from "./workspace/TabBar";
 import OutlinePanel, { type Heading } from "./workspace/OutlinePanel";
 import Modal from "./components/Modal";
+import markaLogo from "../src-tauri/icons/marka.svg";
 
 type PreviewResult = {
   headings: Heading[];
@@ -697,7 +698,7 @@ export default function App() {
     <div className="app-shell">
       <header className="app-header">
         <div className="brand">
-          <span className="brand-mark">M</span>
+          <img className="brand-mark" src={markaLogo} alt="" />
           <strong>Marka</strong>
           <span className="brand-caption">a space for your words</span>
         </div>
@@ -955,11 +956,6 @@ export default function App() {
                   </select>
                 </label>
               </div>
-              {active.format === "mdx" && (
-                <div className="mdx-help">
-                  Safe MDX preview: bundled components and literal values only
-                </div>
-              )}
               {(active.status === "Conflict" || active.error) && (
                 <div className="document-warning" role="alert">
                   <span>
@@ -1079,7 +1075,7 @@ export default function App() {
             </>
           ) : (
             <div className="welcome">
-              <div className="welcome-mark">M</div>
+              <img className="welcome-mark" src={markaLogo} alt="" />
               <p className="eyebrow">YOUR WORDS, WITHOUT DISTRACTIONS</p>
               <h1>Make room for a good idea.</h1>
               <p>

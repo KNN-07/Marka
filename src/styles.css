@@ -124,38 +124,32 @@ small {
   font-size: 13px;
 }
 .app-header {
-  height: 62px;
+  height: 44px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--border);
-  gap: 18px;
+  gap: 12px;
   background: var(--surface);
 }
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   white-space: nowrap;
 }
 .brand strong {
-  font-size: 19px;
+  font-size: 17px;
   letter-spacing: -0.6px;
 }
 .brand-mark,
 .welcome-mark {
-  font-family: Georgia, serif;
-  font-weight: 700;
-  display: grid;
-  place-items: center;
-  color: var(--accent);
-  border: 1px solid var(--accent);
-  border-radius: 9px;
-  width: 31px;
-  height: 32px;
-  font-size: 24px;
+  display: block;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
 }
 .brand-caption {
   font-size: 11px;
@@ -166,6 +160,12 @@ small {
   display: flex;
   gap: 4px;
   align-items: center;
+}
+.header-actions button,
+.header-actions select {
+  min-height: 28px;
+  padding: 4px 8px;
+  line-height: 18px;
 }
 .header-actions select {
   margin-left: 8px;
@@ -220,20 +220,22 @@ small {
 .sidebar-modes {
   display: flex;
   gap: 6px;
-  padding: 10px 12px;
+  padding: 3px 8px;
   border-bottom: 1px solid var(--border);
-  height: 46px;
+  height: 34px;
 }
 .sidebar-modes button {
   flex: 1;
   font-size: 12px;
+  padding: 3px 8px;
+  min-height: 26px;
 }
 .sidebar-heading {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 14px 9px 7px;
-  min-height: 48px;
+  padding: 4px 8px;
+  min-height: 38px;
 }
 .workspace-name {
   flex: 1;
@@ -323,7 +325,7 @@ small {
 .tabbar {
   display: flex;
   align-items: center;
-  height: 46px;
+  height: 34px;
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
@@ -381,11 +383,15 @@ small {
 .document-controls {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px 14px;
+  gap: 8px;
+  padding: 2px 10px;
   border-bottom: 1px solid var(--border);
-  height: 44px;
+  height: 34px;
   flex-shrink: 0;
+}
+.document-controls .icon-button {
+  min-height: 26px;
+  padding: 4px;
 }
 .mode-switch {
   display: flex;
@@ -395,7 +401,7 @@ small {
 }
 .mode-switch button {
   font-size: 11px;
-  padding: 4px 12px;
+  padding: 3px 10px;
 }
 .mode-switch button.selected {
   background: var(--surface);
@@ -409,9 +415,9 @@ small {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 5px 14px;
+  padding: 3px 10px;
   border-bottom: 1px solid var(--border);
-  height: 38px;
+  height: 32px;
   flex-shrink: 0;
   overflow-x: auto;
 }
@@ -446,13 +452,6 @@ small {
 .insert-menu:focus-within {
   outline: 2px solid var(--accent);
 }
-.mdx-help {
-  color: var(--muted);
-  font-size: 10px;
-  padding: 6px 16px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
-}
 .document-body {
   display: flex;
   flex: 1;
@@ -485,13 +484,13 @@ small {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 16px;
+  padding: 4px 12px;
   font-size: 9px;
   letter-spacing: 1.3px;
   color: var(--muted);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  height: 32px;
+  height: 24px;
 }
 .pane-label span {
   font-size: 9px;
@@ -637,9 +636,7 @@ small {
 }
 .welcome-mark {
   width: 58px;
-  height: 60px;
-  font-size: 43px;
-  border-radius: 15px;
+  height: 58px;
   margin-bottom: 24px;
 }
 .eyebrow {
@@ -778,7 +775,7 @@ small {
     gap: 0;
   }
   .header-actions button {
-    padding: 7px;
+    padding: 4px 7px;
   }
   .welcome h1 {
     font-size: 29px;
@@ -819,17 +816,13 @@ small {
   .welcome-mark {
     margin-bottom: 16px;
     width: 45px;
-    height: 47px;
-    font-size: 34px;
+    height: 45px;
   }
   .welcome-actions {
     margin-bottom: 20px;
   }
   .welcome {
     padding-block: 20px;
-  }
-  .app-header {
-    height: 53px;
   }
 }
 .preview-mount {
@@ -842,10 +835,9 @@ small {
   flex: 1;
   min-height: 0;
 }
-.preview-pane > .preview-help,
 .preview-pane > .preview-notice {
   flex: 0 0 auto;
-  padding: 8px 12px;
+  padding: 5px 10px;
   font-size: 11px;
   line-height: 1.5;
   border-bottom: 1px solid var(--border);

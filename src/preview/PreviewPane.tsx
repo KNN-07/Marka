@@ -36,7 +36,7 @@ export default function PreviewPane(props: PreviewPaneProps) {
   const [goodPages, setGoodPages] = useState<Map<string, string>>(
     () => new Map(),
   );
-  const [status, setStatus] = useState("Preparing preview…");
+  const [status, setStatus] = useState("");
   const [retry, setRetry] = useState(0);
   const [failed, setFailed] = useState(false);
   const resultCallback = useRef(props.onResult);
@@ -88,7 +88,7 @@ export default function PreviewPane(props: PreviewPaneProps) {
       );
     };
     setFailed(false);
-    setStatus("Updating preview…");
+    setStatus("");
     const debounce = setTimeout(() => {
       if (!current) return;
       worker = new Worker(new URL("./preview.worker.ts", import.meta.url), {
@@ -142,7 +142,6 @@ export default function PreviewPane(props: PreviewPaneProps) {
           worker = null;
           return;
         }
-        setStatus("Resolving local preview resources…");
         const resources: Record<string, ResourceValue> = {};
         let imageBytes = 0;
         const usedImages = new Set<string>(),
@@ -263,11 +262,6 @@ export default function PreviewPane(props: PreviewPaneProps) {
         height: "100%",
       }}
     >
-      {props.format === "mdx" && (
-        <div className="preview-help">
-          Safe MDX preview: bundled components and literal values only
-        </div>
-      )}
       {status && (
         <div
           className={`preview-notice ${failed ? "error" : ""}`}

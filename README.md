@@ -9,7 +9,7 @@
   <a href="https://github.com/KNN-07/Marka/issues">Report an issue</a>
 </p>
 
-![Marka desktop app in dark mode, with a local folder workspace, MDX source, live Mermaid diagrams, and heading outline](docs/assets/marka-desktop.png)
+![Marka desktop app in dark mode, with compact controls, a local folder workspace, MDX source, a Callout, and a live Mermaid diagram](docs/assets/marka-desktop.png)
 
 *Actual Linux desktop screenshot from the packaged app.*
 
