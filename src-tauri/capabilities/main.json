@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Local main application window only",
+  "windows": ["main"],
+  "permissions": [
+    "workspace-access",
+    "core:event:default",
+    "core:window:default"
+  ]
+}

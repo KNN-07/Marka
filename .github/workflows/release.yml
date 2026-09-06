@@ -1,0 +1,99 @@
+name: Release Marka
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Validate release version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - name: Require matching application versions
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const json = path => JSON.parse(readFileSync(path, 'utf8'));
+          const version = json('package.json').version;
+          const cargo = readFileSync('src-tauri/Cargo.toml', 'utf8').match(/^version\s*=\s*"([^"]+)"/m)?.[1];
+          const versions = [cargo, json('src-tauri/tauri.conf.json').version, json('package-lock.json').version, json('package-lock.json').packages[''].version];
+          if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version) || versions.some(value => value !== version) || process.env.RELEASE_TAG !== `v${version}`) {
+            throw new Error(`Release tag and package/Cargo/Tauri/lockfile versions must match: ${process.env.RELEASE_TAG}, ${version}, ${versions.join(', ')}`);
+          }
+          console.log(`Validated ${process.env.RELEASE_TAG}`);
+          NODE
+
+  packages:
+    needs: version
+    uses: ./.github/workflows/build.yml
+
+  publish:
+    name: Publish complete release
+    needs: packages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: release-*
+          path: downloads
+      - name: Require every platform and generate checksums
+        shell: python
+        run: |
+          import hashlib
+          import pathlib
+          import shutil
+          root = pathlib.Path('downloads')
+          destination = pathlib.Path('release-assets')
+          destination.mkdir()
+          suffixes = ['.deb', '.AppImage', '.exe', '.dmg', '.app.tar.gz']
+          for suffix in suffixes:
+              matches = [path for path in root.rglob('*') if path.is_file() and path.name.endswith(suffix)]
+              if len(matches) != 1:
+                  raise SystemExit(f'Expected exactly one {suffix} package, found {len(matches)}')
+              shutil.copy2(matches[0], destination / matches[0].name)
+          checksums = []
+          for path in sorted(destination.iterdir()):
+              with path.open('rb') as stream:
+                  checksum = hashlib.file_digest(stream, 'sha256').hexdigest()
+              checksums.append(f'{checksum}  {path.name}\n')
+          (destination / 'SHA256SUMS').write_text(''.join(checksums))
+      - name: Publish only after every asset uploads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          cat > release-notes.txt <<'NOTES'
+          Native packages for Linux x64, Windows x64, and macOS Intel/Apple Silicon (universal).
+
+          These are unsigned Windows and ad-hoc-signed macOS builds, not trusted/notarized public distributions. Windows SmartScreen and macOS Gatekeeper may warn or block installation. No automatic updater is configured.
+
+          Verify downloads against SHA256SUMS. Linux packages are built on Ubuntu 22.04 and require a compatible WebKitGTK 4.1/GTK 3 environment; compatibility with older distributions is not guaranteed.
+          NOTES
+          if gh release view "$RELEASE_TAG" --json isDraft > existing-release.json; then
+            test "$(jq -r .isDraft existing-release.json)" = true || { echo 'Refusing to modify an already published release'; exit 1; }
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --draft --title "Marka $RELEASE_TAG" --notes-file release-notes.txt
+          fi
+          gh release upload "$RELEASE_TAG" release-assets/* --clobber
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
+          else
+            gh release edit "$RELEASE_TAG" --draft=false
+          fi
