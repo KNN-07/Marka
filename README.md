@@ -66,7 +66,15 @@ Supported components are `Callout`, `Badge`, and `Tabs` with direct `Tab` childr
 
 **Not a general-purpose MDX runtime:** imports/exports, executable expressions, spreads, custom components, event handlers, and document-provided styles are rejected. Invalid MDX displays diagnostics and retains that document's last good preview when available; source remains editable and saveable.
 
-Preview content is sanitized and rendered in a script-disabled sandbox. Remote images and workspace SVGs are not loaded; supported local raster images must stay within the selected workspace. Links do not navigate outside the preview. Mermaid is rendered by the bundled library, with configuration overrides rejected; it is not a route to execute document code. YAML frontmatter is preserved in source but does not become executable data or preview variables. Documents are limited to 5 MiB.
+Preview content is sanitized and rendered in an opaque sandbox. A single app-owned link handler recognizes deliberate modified clicks; document-supplied scripts and event handlers remain blocked. The frame cannot access the host DOM; browser-opening requests pass through host validation and a restricted native command. Remote images and workspace SVGs are not loaded; supported local raster images must stay within the selected workspace. Mermaid is rendered by the bundled library, with configuration overrides rejected; it is not a route to execute document code. YAML frontmatter is preserved in source but does not become executable data or preview variables. Documents are limited to 5 MiB.
+
+## Open preview links
+
+**Ctrl+click** a web link in the preview (**Cmd+click on macOS**) to open it in your default browser. A confirmation shows the full destination before opening; Cancel leaves the browser and document untouched. Ordinary clicks do not open external pages, while heading and footnote links still work normally inside the preview.
+
+Use the header's **Settings** button to turn **Warn before opening external links** off or back on. The same checkbox is available in the confirmation. Changes apply immediately and persist across desktop restarts; turning off the warning does not remove the Ctrl/Cmd-click requirement.
+
+Only absolute HTTP and HTTPS destinations without embedded credentials are allowed. File URLs, executable/custom schemes, malformed URLs, and control characters are blocked. Opening the system browser requires the desktop app; browser-only development mode reports that limitation rather than imitating native behavior.
 
 ## Export and print
 

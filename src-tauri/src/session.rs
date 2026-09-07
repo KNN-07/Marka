@@ -20,7 +20,14 @@ pub struct Session {
     pub sidebar_width: f64,
     pub split_ratio: f64,
     pub outline_visible: bool,
+    #[serde(default = "default_warn_external_links")]
+    pub warn_external_links: bool,
 }
+
+fn default_warn_external_links() -> bool {
+    true
+}
+
 impl Default for Session {
     fn default() -> Self {
         Self {
@@ -33,6 +40,7 @@ impl Default for Session {
             sidebar_width: 240.0,
             split_ratio: 0.5,
             outline_visible: true,
+            warn_external_links: default_warn_external_links(),
         }
     }
 }
@@ -230,6 +238,45 @@ impl AppState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn old_session_restores_with_link_warning_without_resetting_preferences() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("session.json");
+        let original = br#"{"root":null,"session":{"version":1,"tabs":[],"activePath":null,"theme":"dark","wrap":false,"previewMode":"source","sidebarWidth":300.0,"splitRatio":0.6,"outlineVisible":false}}"#;
+        fs::write(&path, original).unwrap();
+
+        let restored = AppState::new(path.clone()).restore();
+        assert!(restored.notice.is_none());
+        assert!(restored.session.warn_external_links);
+        assert_eq!(restored.session.theme, "dark");
+        assert!(!restored.session.wrap);
+        assert_eq!(restored.session.preview_mode, "source");
+        assert_eq!(restored.session.sidebar_width, 300.0);
+        assert_eq!(restored.session.split_ratio, 0.6);
+        assert!(!restored.session.outline_visible);
+        assert_eq!(fs::read(path).unwrap(), original);
+    }
+
+    #[test]
+    fn disabled_link_warning_survives_save_and_restart() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("session.json");
+        let mut app = AppState::new(path.clone());
+        app.save(
+            Session {
+                warn_external_links: false,
+                ..Session::default()
+            },
+            None,
+        )
+        .unwrap();
+
+        let restored = AppState::new(path).restore();
+        assert!(restored.notice.is_none());
+        assert!(!restored.session.warn_external_links);
+    }
+
     #[test]
     fn damaged_session_is_not_overwritten() {
         let temp = tempfile::tempdir().unwrap();

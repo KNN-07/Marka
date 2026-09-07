@@ -1,4 +1,5 @@
 import { safeImagePath } from "./resources";
+import { safeExternalUrl } from "./externalLinks";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
@@ -43,6 +44,7 @@ export type RenderInput = {
   format: "md" | "mdx";
   source: string;
   theme: "light" | "dark";
+  guardExternalLinks?: boolean;
 };
 export type ResourceRequest =
   | { id: string; kind: "image"; path: string }
@@ -137,7 +139,7 @@ const schema: Schema = {
   },
   clobber: ["id", "name"],
   clobberPrefix: "marka-",
-  protocols: { href: [], src: [] },
+  protocols: { href: ["http", "https"], src: [] },
   strip: ["script", "style", "iframe", "object", "embed", "form"],
 };
 function walk(node: Nodes, action: (node: Element) => void) {
@@ -334,12 +336,15 @@ export async function prepareRender(
             checked: !!node.properties.checked,
           };
       }
-      if (
-        node.tagName === "a" &&
-        (typeof node.properties.href !== "string" ||
-          !node.properties.href.startsWith("#"))
-      )
-        delete node.properties.href;
+      if (node.tagName === "a") {
+        const href = node.properties.href;
+        if (typeof href !== "string") delete node.properties.href;
+        else if (!href.startsWith("#")) {
+          const external = safeExternalUrl(href);
+          if (external) node.properties.href = external;
+          else delete node.properties.href;
+        }
+      }
       if (node.tagName === "img") delete node.properties.srcSet;
     });
     tree = (await unified().use(rehypeSanitize, schema).run(tree)) as Root;
@@ -350,7 +355,11 @@ export async function prepareRender(
     let images = 0,
       diagrams = 0;
     walk(tree, (node) => {
-      if (node.tagName === "a" && typeof node.properties.href === "string") {
+      if (
+        node.tagName === "a" &&
+        typeof node.properties.href === "string" &&
+        node.properties.href.startsWith("#")
+      ) {
         let raw = node.properties.href.slice(1);
         try {
           raw = decodeURIComponent(raw);
@@ -362,6 +371,19 @@ export async function prepareRender(
         );
         if (id) node.properties.href = `about:srcdoc#${id}`;
         else delete node.properties.href;
+      } else if (
+        input.guardExternalLinks &&
+        node.tagName === "a" &&
+        typeof node.properties.href === "string"
+      ) {
+        node.properties.dataMarkaUrl = node.properties.href;
+        delete node.properties.href;
+        node.properties.role = "link";
+        node.properties.tabIndex = 0;
+        const hint = "Ctrl/Cmd+click or Ctrl/Cmd+Enter to open in your browser";
+        node.properties.title = node.properties.title
+          ? `${node.properties.title} — ${hint}`
+          : hint;
       }
       for (const prop of ["htmlFor", "ariaDescribedBy"]) {
         const value = node.properties[prop];

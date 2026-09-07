@@ -96,6 +96,69 @@ describe("safe preview pipeline", () => {
       /<script|<iframe|onerror=|onclick=|javascript:|id="[^"]*owned|style="color:red/,
     );
   });
+  it.each(["md", "mdx"] as const)(
+    "preserves only safe web destinations and repaired fragments in %s",
+    async (format) => {
+      const result = await renderDocument(
+        input(
+          '# Target\n\n[Secure](https://example.com/a?q=1#part)\n\n[HTTP](http://example.org/)\n\n[Heading](#target)\n\n<a href="https://example.net/path" title="Original">Raw</a>',
+          format,
+        ),
+      );
+      expect(result.html).toContain('href="https://example.com/a?q=1#part"');
+      expect(result.html).toContain('href="http://example.org/"');
+      expect(result.html).toContain('href="about:srcdoc#marka-heading-target"');
+      expect(result.html).toContain('href="https://example.net/path"');
+      expect(result.html).toContain('title="Original"');
+      expect(result.html).not.toMatch(/onclick=|<script/i);
+    },
+  );
+  it("makes guarded web links inert without scripts while retaining fragment navigation", async () => {
+    const result = await renderDocument({
+      ...input(
+        '# Target\n\n[Web](https://example.com/path)\n\n[Heading](#target)\n\n<a data-marka-url="https://forged.example/" role="link" tabindex="0">Forged</a>',
+      ),
+      guardExternalLinks: true,
+    });
+    const webAnchor = result.html?.match(/<a\b[^>]*>Web<\/a>/)?.[0];
+    expect(webAnchor).toContain('data-marka-url="https://example.com/path"');
+    expect(webAnchor).toContain('role="link"');
+    expect(webAnchor).toContain('tabindex="0"');
+    expect(webAnchor).not.toMatch(/\bhref=/);
+    expect(result.html).toContain('href="about:srcdoc#marka-heading-target"');
+    expect(result.html).toContain(">Forged</a>");
+    expect(result.html).not.toContain("https://forged.example/");
+    expect(result.html).not.toContain("<script");
+  });
+  it("strips unsafe web URLs without losing their readable labels", async () => {
+    const destinations = [
+      "javascript:alert(1)",
+      "data:text/html,attack",
+      "file:///secret",
+      "mailto:user@example.com",
+      "//example.com/path",
+      "/relative",
+      "notes.md",
+      "https://user:password@example.com/",
+      "https://@example.com/",
+      "https:///example.com/",
+      "https://example.com/%0aattack",
+      "https://example.com/%7fattack",
+      "https://exam&#x09;ple.com/",
+      " https://example.com/",
+      "https:\\\\example.com/",
+    ];
+    const result = await renderDocument(
+      input(
+        destinations
+          .map((href, index) => `<a href="${href}">Blocked ${index}</a>`)
+          .join("\n\n"),
+      ),
+    );
+    for (let index = 0; index < destinations.length; index++)
+      expect(result.html).toContain(`>Blocked ${index}</a>`);
+    expect(result.html).not.toMatch(/<a[^>]*\bhref=/);
+  });
   it("never requests privileged schemes or encoded path attacks", async () => {
     for (const path of [
       "https://evil.example/a.png",

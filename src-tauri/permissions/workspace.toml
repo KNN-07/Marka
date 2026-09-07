@@ -1,4 +1,4 @@
 [[permission]]
 identifier = "workspace-access"
 description = "Access Marka's generation-scoped workspace and application lifecycle."
-commands.allow = ["choose_workspace", "restore_session", "list_directory", "read_document", "write_document", "create_directory", "search_workspace", "read_asset", "save_session", "complete_exit", "save_export", "open_print_document"]
+commands.allow = ["choose_workspace", "restore_session", "list_directory", "read_document", "write_document", "create_directory", "search_workspace", "read_asset", "save_session", "complete_exit", "save_export", "open_print_document", "open_external_link"]

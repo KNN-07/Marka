@@ -1,3 +1,4 @@
+mod external_links;
 mod output;
 mod session;
 mod workspace;
@@ -219,6 +220,11 @@ fn install_menu(app: &tauri::App) -> tauri::Result<()> {
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(
+            tauri_plugin_opener::Builder::new()
+                .open_js_links_on_click(false)
+                .build(),
+        )
         .manage(ExitLatch::default())
         .setup(|app| {
             let path = app.path().app_local_data_dir()?.join("session.json");
@@ -247,6 +253,7 @@ pub fn run() {
             read_asset,
             save_session,
             complete_exit,
+            external_links::open_external_link,
             output::save_export,
             output::open_print_document,
             output::print_current

@@ -41,6 +41,7 @@ export type Session = {
   sidebarWidth: number;
   splitRatio: number;
   outlineVisible: boolean;
+  warnExternalLinks: boolean;
 };
 export const defaultSession: Session = {
   version: 1,
@@ -52,6 +53,7 @@ export const defaultSession: Session = {
   sidebarWidth: 240,
   splitRatio: 0.5,
   outlineVisible: true,
+  warnExternalLinks: true,
 };
 export type RestoredSession = {
   workspace: Workspace | null;

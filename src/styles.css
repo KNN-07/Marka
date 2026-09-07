@@ -740,6 +740,25 @@ small {
 .modal p.error {
   color: var(--error);
 }
+.external-link-url {
+  display: block;
+  max-height: 9rem;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--subtle);
+  font-size: 12px;
+  user-select: text;
+}
+.dialog-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  font-size: 13px;
+}
 .dialog-field {
   display: flex;
   flex-direction: column;

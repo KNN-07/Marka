@@ -44,6 +44,8 @@ export const readAsset = (workspaceId: string, path: string) =>
 export const saveSession = (session: Session, workspaceId: string | null) =>
   invoke<void>("save_session", { session, workspaceId });
 export const completeExit = () => invoke<void>("complete_exit");
+export const openExternalLink = (url: string) =>
+  invoke<void>("open_external_link", { url });
 
 export async function saveExport(
   format: string,

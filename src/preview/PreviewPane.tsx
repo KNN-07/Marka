@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Heading, Diagnostic, Decoration } from "./pipeline";
 import { renderDocument, type RenderCache } from "./render";
+import { safeExternalUrl } from "./externalLinks";
+import linkBridgeUrl from "./linkBridge.js?url&no-inline";
 import previewCss from "./preview.css?raw";
 import katexCss from "../generated/katex.css?raw";
 import lightHighlight from "highlight.js/styles/github.css?raw";
@@ -14,14 +16,13 @@ export interface PreviewPaneProps {
   workspaceId: string | null;
   path: string | null;
   refreshKey: number;
+  onOpenLink: (url: string) => void;
   onResult: (result: {
     headings: Heading[];
     diagnostics: Diagnostic[];
     decorations: Decoration[];
   }) => void;
 }
-const policy =
-  "default-src 'none'; script-src 'none'; connect-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:; object-src 'none'; form-action 'none'; base-uri 'none'";
 export default function PreviewPane(props: PreviewPaneProps) {
   const [goodPages, setGoodPages] = useState<Map<string, string>>(
     () => new Map(),
@@ -31,6 +32,9 @@ export default function PreviewPane(props: PreviewPaneProps) {
   const [failed, setFailed] = useState(false);
   const resultCallback = useRef(props.onResult);
   resultCallback.current = props.onResult;
+  const iframe = useRef<HTMLIFrameElement>(null);
+  const linkCallback = useRef(props.onOpenLink);
+  linkCallback.current = props.onOpenLink;
   const cache = useRef<RenderCache & { identity: string }>({
     identity: "",
     images: new Map(),
@@ -52,6 +56,7 @@ export default function PreviewPane(props: PreviewPaneProps) {
           format: props.format,
           source: props.source,
           theme: props.theme,
+          guardExternalLinks: true,
         },
         {
           workspaceId: props.workspaceId,
@@ -132,7 +137,48 @@ export default function PreviewPane(props: PreviewPaneProps) {
   ]);
   const html = goodPages.get(props.documentId) ?? "";
   const css = `${previewCss}\n${katexCss}\n${props.theme === "dark" ? darkHighlight : lightHighlight}`;
-  const srcDoc = `<!doctype html><html lang="en" data-theme="${props.theme}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="${policy}"><style>${css}</style></head><body><main>${html}</main></body></html>`;
+  const page = useMemo(() => {
+    const channel = Array.from(
+      crypto.getRandomValues(new Uint8Array(32)),
+      (byte) => byte.toString(16).padStart(2, "0"),
+    ).join("");
+    const policy = `default-src 'none'; script-src 'nonce-${channel}'; connect-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:; object-src 'none'; form-action 'none'; base-uri 'none'`;
+    const bridgeUrl = new URL(linkBridgeUrl, window.location.href).href
+      .replaceAll("&", "&amp;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("<", "&lt;");
+    return {
+      channel,
+      srcDoc: `<!doctype html><html lang="en" data-theme="${props.theme}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="${policy}"><script nonce="${channel}" data-channel="${channel}" src="${bridgeUrl}"></script><style>${css}</style></head><body><main>${html}</main></body></html>`,
+    };
+  }, [html, css, props.theme, props.documentId]);
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (
+        !event.isTrusted ||
+        event.source !== iframe.current?.contentWindow ||
+        event.origin !== "null"
+      )
+        return;
+      const data: unknown = event.data;
+      if (
+        !data ||
+        typeof data !== "object" ||
+        Array.isArray(data) ||
+        Object.keys(data).length !== 3 ||
+        !("type" in data) ||
+        data.type !== "marka:open-external-link" ||
+        !("channel" in data) ||
+        data.channel !== page.channel ||
+        !("url" in data)
+      )
+        return;
+      const url = safeExternalUrl(data.url);
+      if (url) linkCallback.current(url);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [page.channel]);
   return (
     <section
       className="preview-pane"
@@ -165,10 +211,11 @@ export default function PreviewPane(props: PreviewPaneProps) {
         </div>
       )}
       <iframe
-        title="Markdown preview"
-        sandbox=""
+        ref={iframe}
+        title="Markdown preview — Ctrl/Cmd+click web links to open"
+        sandbox="allow-scripts"
         referrerPolicy="no-referrer"
-        srcDoc={srcDoc}
+        srcDoc={page.srcDoc}
         style={{
           border: 0,
           flex: 1,

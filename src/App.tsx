@@ -16,6 +16,7 @@ import {
   FolderOpen,
   Save,
   Printer,
+  Settings,
   PanelLeft,
   PanelRight,
   Search,
@@ -65,6 +66,8 @@ type Dialog = {
   label?: string;
   confirm: string;
   alternate?: string;
+  externalUrl?: string;
+  settings?: boolean;
   action?: (value: string) => Promise<boolean>;
   resolve: (value: "confirm" | "alternate" | "cancel") => void;
 };
@@ -142,6 +145,7 @@ export default function App() {
     setNotice,
   );
   const operation = useRef(false);
+  const openingLink = useRef(false);
   const generation = useRef(0);
   const restoration = useRef<Promise<RestoredSession> | null>(null);
   const restoreTabs = useRef<Session | null>(null);
@@ -307,6 +311,40 @@ export default function App() {
       setDialogError((error as Error).message ?? String(error));
     } finally {
       setDialogBusy(false);
+    }
+  };
+  const openPreviewLink = (url: string) => {
+    if (
+      openingLink.current ||
+      operation.current ||
+      document.querySelector('[aria-modal="true"]')
+    )
+      return;
+    const open = async () => {
+      if (openingLink.current) return false;
+      openingLink.current = true;
+      try {
+        if (!native.nativeAvailable)
+          throw new Error(
+            "Opening links in your default browser is available in the desktop app.",
+          );
+        await native.openExternalLink(url);
+        return true;
+      } finally {
+        openingLink.current = false;
+      }
+    };
+    if (current.current.preferences.warnExternalLinks) {
+      void ask({
+        title: "Open external link?",
+        message:
+          "This address will open in your default browser, outside Marka. Only continue if you trust the destination.",
+        externalUrl: url,
+        confirm: "Open in browser",
+        action: open,
+      });
+    } else {
+      void open().catch((error) => setNotice(error.message ?? String(error)));
     }
   };
   const saveDocument = async (id: string, saveAs = false): Promise<boolean> => {
@@ -801,6 +839,22 @@ export default function App() {
             <option value="light">Light</option>
             <option value="dark">Dark</option>
           </select>
+          <button
+            aria-label="Settings"
+            title="Settings"
+            disabled={!ready || !!dialog}
+            onClick={() => {
+              void ask({
+                title: "Settings",
+                message:
+                  "Changes apply immediately. Preferences are saved automatically in the desktop app.",
+                settings: true,
+                confirm: "Done",
+              });
+            }}
+          >
+            <Settings size={16} />
+          </button>
         </div>
       </header>
       {!native.nativeAvailable && (
@@ -1106,6 +1160,7 @@ export default function App() {
                           path={snapshot.path}
                           refreshKey={refreshKey}
                           onResult={onResult}
+                          onOpenLink={openPreviewLink}
                         />
                       )}
                     </div>
@@ -1183,12 +1238,39 @@ export default function App() {
       {dialog && (
         <Modal title={dialog.title} onCancel={() => finishDialog("cancel")}>
           <p>{dialog.message}</p>
+          {dialog.externalUrl && (
+            <code className="external-link-url" dir="ltr">
+              {dialog.externalUrl}
+            </code>
+          )}
           <form
             onSubmit={(event) => {
               event.preventDefault();
               void submitDialog();
             }}
           >
+            {(dialog.settings || dialog.externalUrl) && (
+              <label className="dialog-option">
+                <input
+                  type="checkbox"
+                  checked={preferences.warnExternalLinks}
+                  disabled={dialogBusy}
+                  onChange={(event) =>
+                    patchPreferences({
+                      warnExternalLinks: event.target.checked,
+                    })
+                  }
+                />
+                Warn before opening external links
+              </label>
+            )}
+            {dialog.settings && (
+              <p>
+                Ctrl+click a web link in the preview to open it in your default
+                browser (Cmd+click on macOS). Turning off the warning does not
+                enable ordinary-click navigation.
+              </p>
+            )}
             {dialog.input !== undefined && (
               <label className="dialog-field">
                 {dialog.label}
@@ -1206,13 +1288,15 @@ export default function App() {
               </p>
             )}
             <div className="dialog-actions">
-              <button
-                type="button"
-                disabled={dialogBusy}
-                onClick={() => finishDialog("cancel")}
-              >
-                Cancel
-              </button>
+              {!dialog.settings && (
+                <button
+                  type="button"
+                  disabled={dialogBusy}
+                  onClick={() => finishDialog("cancel")}
+                >
+                  Cancel
+                </button>
+              )}
               {dialog.alternate && (
                 <button
                   type="button"

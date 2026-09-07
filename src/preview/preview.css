@@ -75,8 +75,11 @@ a {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-a:not([href]) {
+a:not([href]):not([data-marka-url]) {
   cursor: text;
+}
+a[data-marka-url] {
+  cursor: pointer;
 }
 blockquote {
   margin-left: 0;
