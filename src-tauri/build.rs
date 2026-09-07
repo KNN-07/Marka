@@ -15,6 +15,10 @@ fn main() {
             "open_print_document",
             "print_current",
             "open_external_link",
+            "resolve_mdx_module",
+            "run_mdx",
+            "stop_mdx",
+            "mdx_runtime_status",
         ]),
     ))
     .expect("failed to build Marka application manifest");

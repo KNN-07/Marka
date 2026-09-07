@@ -6,6 +6,9 @@ import type {
   SearchResult,
   Session,
   RestoredSession,
+  MdxModule,
+  MdxRunPayload,
+  MdxRuntimeStatus,
 } from "./contracts";
 export const nativeAvailable = isTauri();
 export const chooseWorkspace = () =>
@@ -46,6 +49,26 @@ export const saveSession = (session: Session, workspaceId: string | null) =>
 export const completeExit = () => invoke<void>("complete_exit");
 export const openExternalLink = (url: string) =>
   invoke<void>("open_external_link", { url });
+export const resolveMdxModule = (
+  workspaceId: string,
+  entryPath: string,
+  importerPath: string | null,
+  specifier: string,
+) =>
+  invoke<MdxModule>("resolve_mdx_module", {
+    workspaceId,
+    entryPath,
+    importerPath,
+    specifier,
+  });
+export const runMdx = (
+  workspaceId: string,
+  path: string,
+  payload: MdxRunPayload,
+) => invoke<void>("run_mdx", { workspaceId, path, payload });
+export const stopMdx = () => invoke<void>("stop_mdx");
+export const mdxRuntimeStatus = () =>
+  invoke<MdxRuntimeStatus>("mdx_runtime_status");
 
 export async function saveExport(
   format: string,

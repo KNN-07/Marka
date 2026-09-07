@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-stop-mdx"
+description = "Enables the stop_mdx command without any pre-configured scope."
+commands.allow = ["stop_mdx"]
+
+[[permission]]
+identifier = "deny-stop-mdx"
+description = "Denies the stop_mdx command without any pre-configured scope."
+commands.deny = ["stop_mdx"]

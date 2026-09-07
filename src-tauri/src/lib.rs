@@ -1,4 +1,5 @@
 mod external_links;
+mod mdx;
 mod output;
 mod session;
 mod workspace;
@@ -52,9 +53,7 @@ async fn choose_workspace(
         let mut state = state
             .lock()
             .map_err(|_| AppError::new("IO", "Workspace state is unavailable."))?;
-        let workspace = state.workspace.select(&path)?;
-        state.session.tabs.clear();
-        state.session.active_path = None;
+        let workspace = state.select_workspace(&path)?;
         Ok(Some(workspace))
     })
     .await
@@ -153,6 +152,45 @@ fn complete_exit(app: tauri::AppHandle, latch: tauri::State<'_, ExitLatch>) {
     app.exit(0);
 }
 
+#[tauri::command]
+async fn resolve_mdx_module(
+    state: tauri::State<'_, SharedState>,
+    workspace_id: String,
+    entry_path: String,
+    importer_path: Option<String>,
+    specifier: String,
+) -> Result<mdx::MdxModule> {
+    blocking(state.inner().clone(), move |s| {
+        s.resolve_mdx_module(
+            &workspace_id,
+            &entry_path,
+            importer_path.as_deref(),
+            &specifier,
+        )
+    })
+    .await
+}
+#[tauri::command]
+async fn run_mdx(
+    state: tauri::State<'_, SharedState>,
+    workspace_id: String,
+    path: String,
+    payload: mdx::MdxRunPayload,
+) -> Result<()> {
+    blocking(state.inner().clone(), move |s| {
+        s.run_mdx(&workspace_id, path, payload)
+    })
+    .await
+}
+#[tauri::command]
+async fn stop_mdx(state: tauri::State<'_, SharedState>) -> Result<()> {
+    blocking(state.inner().clone(), |s| s.mdx_runtime.stop()).await
+}
+#[tauri::command]
+async fn mdx_runtime_status(state: tauri::State<'_, SharedState>) -> Result<mdx::MdxRuntimeStatus> {
+    blocking(state.inner().clone(), |s| s.mdx_runtime.status()).await
+}
+
 #[cfg(target_os = "macos")]
 fn install_menu(app: &tauri::App) -> tauri::Result<()> {
     use tauri::menu::{Menu, MenuItem, PredefinedMenuItem as Native, Submenu};
@@ -218,6 +256,9 @@ fn install_menu(app: &tauri::App) -> tauri::Result<()> {
 }
 
 pub fn run() {
+    if mdx::runtime_mode() {
+        return;
+    }
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(
@@ -253,6 +294,10 @@ pub fn run() {
             read_asset,
             save_session,
             complete_exit,
+            resolve_mdx_module,
+            run_mdx,
+            stop_mdx,
+            mdx_runtime_status,
             external_links::open_external_link,
             output::save_export,
             output::open_print_document,
@@ -261,6 +306,11 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("Unable to initialize Marka desktop application");
     app.run(|app, event| {
+        if let tauri::RunEvent::Exit = event {
+            if let Ok(mut state) = app.state::<SharedState>().lock() {
+                let _ = state.mdx_runtime.stop();
+            }
+        }
         if let tauri::RunEvent::ExitRequested { api, .. } = event {
             if !app.state::<ExitLatch>().0.load(Ordering::SeqCst) {
                 api.prevent_exit();

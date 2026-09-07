@@ -17,6 +17,8 @@ import {
   Save,
   Printer,
   Settings,
+  Play,
+  Square,
   PanelLeft,
   PanelRight,
   Search,
@@ -42,6 +44,8 @@ import TabBar from "./workspace/TabBar";
 import OutlinePanel, { type Heading } from "./workspace/OutlinePanel";
 import Modal from "./components/Modal";
 import markaLogo from "../src-tauri/icons/marka.svg";
+import MdxSettings from "./components/MdxSettings";
+import { useMdxExecution } from "./workspace/useMdxExecution";
 import { useExport } from "./export/useExport";
 import type { ExportFormat } from "./export/document";
 
@@ -139,6 +143,19 @@ export default function App() {
   const view = useRef<EditorView | null>(null);
   const current = useRef({ documents, workspace, preferences });
   current.current = { documents, workspace, preferences };
+  const executable = Boolean(
+    documents.active?.format === "mdx" &&
+    documents.active.path &&
+    preferences.allowMdxExecution &&
+    preferences.mdxExecutionFiles.includes(documents.active.path),
+  );
+  const execution = useMdxExecution(
+    workspace?.id ?? null,
+    preferences,
+    theme,
+    () => current.current.documents.active ?? null,
+    () => persist(),
+  );
   const exporter = useExport(
     () => current.current.documents.active ?? null,
     workspace?.id ?? null,
@@ -361,6 +378,12 @@ export default function App() {
       if (!chosen) return false;
       untouchedRecovery.current = false;
       setWorkspace(chosen);
+      setPreferences((old) => ({
+        ...old,
+        allowMdxExecution: false,
+        mdxExecutionFiles: [],
+        mdxPlugins: [],
+      }));
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
     }
     if (tab.path && !saveAs) return current.current.documents.save(id);
@@ -445,6 +468,13 @@ export default function App() {
       untouchedRecovery.current = false;
       current.current.documents.clear();
       setWorkspace(chosen);
+      if (current.current.workspace?.root !== chosen.root)
+        setPreferences((old) => ({
+          ...old,
+          allowMdxExecution: false,
+          mdxExecutionFiles: [],
+          mdxPlugins: [],
+        }));
       setRefreshKey((value) => value + 1);
     });
   };
@@ -471,6 +501,12 @@ export default function App() {
     }
   };
   const printDocument = () => {
+    if (executable) {
+      setNotice(
+        "Interactive MDX runs separately. Switch this file to safe mode for static export and printing.",
+      );
+      return;
+    }
     void exporter.run("print");
   };
   const handlers = useRef({ exit, refresh, printDocument });
@@ -803,9 +839,13 @@ export default function App() {
           </button>
           <select
             aria-label="Export document"
-            title="Export current buffer without changing the source file"
+            title={
+              executable
+                ? "Switch this file to safe mode for static exports"
+                : "Export current buffer without changing the source file"
+            }
             value=""
-            disabled={!active || exporter.busy}
+            disabled={!active || exporter.busy || executable}
             onChange={(event) => {
               if (event.target.value)
                 void exporter.run(event.target.value as ExportFormat);
@@ -819,8 +859,14 @@ export default function App() {
           </select>
           <button
             aria-label="Print document"
-            title={nativeTitle ?? "Print document (Ctrl/Cmd+P)"}
-            disabled={!active || exporter.busy || !native.nativeAvailable}
+            title={
+              executable
+                ? "Switch this file to safe mode for static printing"
+                : (nativeTitle ?? "Print document (Ctrl/Cmd+P)")
+            }
+            disabled={
+              !active || exporter.busy || !native.nativeAvailable || executable
+            }
             onClick={printDocument}
           >
             <Printer size={16} />
@@ -977,6 +1023,29 @@ export default function App() {
                 </button>
               ))}
             </div>
+            {active?.format === "mdx" && (
+              <button
+                disabled={
+                  !executable || execution.busy || !native.nativeAvailable
+                }
+                title={
+                  executable
+                    ? "Run the current buffer in a separate restricted process"
+                    : "Enable MDX execution and approve this file in Settings"
+                }
+                onClick={() => void execution.run()}
+              >
+                <Play size={14} /> {execution.busy ? "Compiling…" : "Run MDX"}
+              </button>
+            )}
+            {(execution.busy || execution.status.running) && (
+              <button
+                onClick={() => void execution.stop()}
+                title="Terminate the runtime or cancel compilation"
+              >
+                <Square size={14} /> Stop execution
+              </button>
+            )}
             <span className="controls-spacer" />
             <button
               className={`icon-button ${preferences.wrap ? "selected" : ""}`}
@@ -1099,8 +1168,16 @@ export default function App() {
                       wrap={preferences.wrap}
                       onUpdate={documents.updateState}
                       onView={onView}
-                      diagnostics={preview.diagnostics}
-                      decorations={preview.decorations}
+                      diagnostics={
+                        executable
+                          ? emptyPreview.diagnostics
+                          : preview.diagnostics
+                      }
+                      decorations={
+                        executable
+                          ? emptyPreview.decorations
+                          : preview.decorations
+                      }
                     />
                   </section>
                   {preferences.previewMode === "split" && (
@@ -1140,7 +1217,7 @@ export default function App() {
                     hidden={preferences.previewMode === "source"}
                   >
                     <div className="pane-label">
-                      PREVIEW<span>Live</span>
+                      PREVIEW<span>{executable ? "Manual" : "Live"}</span>
                     </div>
                     <div
                       className="preview-mount"
@@ -1149,24 +1226,66 @@ export default function App() {
                           snapshot?.id === active.id ? "visible" : "hidden",
                       }}
                     >
-                      {snapshot && (
-                        <PreviewPane
-                          documentId={snapshot.id}
-                          version={snapshot.version}
-                          format={snapshot.format}
-                          source={snapshot.source}
-                          theme={theme}
-                          workspaceId={workspace?.id ?? null}
-                          path={snapshot.path}
-                          refreshKey={refreshKey}
-                          onResult={onResult}
-                          onOpenLink={openPreviewLink}
-                        />
+                      {executable ? (
+                        <div className="mdx-execution-panel">
+                          <h2>Manual MDX execution</h2>
+                          <p>
+                            This file is approved to execute. Run MDX opens an
+                            interactive snapshot in a separate restricted
+                            process.
+                          </p>
+                          <p>
+                            Editing never runs code automatically. Each Run
+                            reads the current buffer and{" "}
+                            {preferences.mdxPlugins.length} registered component
+                            plugin(s).
+                          </p>
+                          <button
+                            className="primary"
+                            disabled={execution.busy}
+                            onClick={() => void execution.run()}
+                          >
+                            <Play size={15} />{" "}
+                            {execution.busy ? "Compiling…" : "Run MDX"}
+                          </button>
+                          {execution.status.running && (
+                            <p role="status">
+                              Runtime open for{" "}
+                              <strong>{execution.status.path}</strong>. Use Stop
+                              execution to terminate it, even if plugin code
+                              hangs.
+                            </p>
+                          )}
+                          {execution.error && (
+                            <p className="error" role="alert">
+                              {execution.error}
+                            </p>
+                          )}
+                          <p>
+                            Safe preview, static exports, and printing are
+                            available when execution is disabled for this file.
+                          </p>
+                        </div>
+                      ) : (
+                        snapshot && (
+                          <PreviewPane
+                            documentId={snapshot.id}
+                            version={snapshot.version}
+                            format={snapshot.format}
+                            source={snapshot.source}
+                            theme={theme}
+                            workspaceId={workspace?.id ?? null}
+                            path={snapshot.path}
+                            refreshKey={refreshKey}
+                            onResult={onResult}
+                            onOpenLink={openPreviewLink}
+                          />
+                        )
                       )}
                     </div>
                   </section>
                 </div>
-                {preferences.outlineVisible && (
+                {preferences.outlineVisible && !executable && (
                   <OutlinePanel
                     headings={preview.headings}
                     onSelect={(from) => navigate(from)}
@@ -1270,6 +1389,14 @@ export default function App() {
                 browser (Cmd+click on macOS). Turning off the warning does not
                 enable ordinary-click navigation.
               </p>
+            )}
+            {dialog.settings && (
+              <MdxSettings
+                preferences={preferences}
+                currentPath={active?.format === "mdx" ? active.path : null}
+                available={native.nativeAvailable && !!workspace}
+                onChange={patchPreferences}
+              />
             )}
             {dialog.input !== undefined && (
               <label className="dialog-field">

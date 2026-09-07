@@ -721,6 +721,8 @@ small {
 }
 .modal {
   width: min(470px, 100%);
+  max-height: calc(100vh - 50px);
+  overflow: auto;
   padding: 25px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -758,6 +760,72 @@ small {
   gap: 8px;
   margin-top: 18px;
   font-size: 13px;
+}
+.dialog-option > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mdx-settings {
+  margin: 24px 0 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-width: 0;
+}
+.mdx-settings legend {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0 6px;
+}
+.mdx-settings .dialog-option {
+  margin-top: 8px;
+}
+.mdx-registry {
+  list-style: none;
+  padding: 0;
+  max-height: 180px;
+  overflow: auto;
+}
+.mdx-registry li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.mdx-registry li > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.mdx-registry code {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 11px;
+}
+.mdx-registry button {
+  flex-shrink: 0;
+}
+.mdx-plugin-fields .dialog-field {
+  margin: 12px 0;
+}
+.mdx-execution-panel {
+  padding: 24px;
+  overflow: auto;
+  height: 100%;
+}
+.mdx-execution-panel h2 {
+  font-size: 21px;
+}
+.mdx-execution-panel p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.mdx-execution-panel p.error {
+  color: var(--error);
 }
 .dialog-field {
   display: flex;

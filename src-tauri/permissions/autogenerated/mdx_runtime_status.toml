@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mdx-runtime-status"
+description = "Enables the mdx_runtime_status command without any pre-configured scope."
+commands.allow = ["mdx_runtime_status"]
+
+[[permission]]
+identifier = "deny-mdx-runtime-status"
+description = "Denies the mdx_runtime_status command without any pre-configured scope."
+commands.deny = ["mdx_runtime_status"]

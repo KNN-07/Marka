@@ -16,7 +16,9 @@ export type AppError = {
     | "TOO_LARGE"
     | "INVALID_UTF8"
     | "CONFLICT"
-    | "IO";
+    | "IO"
+    | "INVALID_PAYLOAD"
+    | "MDX_NOT_APPROVED";
   message: string;
 };
 export type SearchMatch = {
@@ -31,6 +33,22 @@ export type SearchResult = {
   truncated: boolean;
   skipped: number;
 };
+export type MdxPlugin = {
+  name: string;
+  path: string;
+  exportName: string;
+};
+export type MdxModule = { path: string; source: string };
+export type MdxRunPayload = {
+  title: string;
+  code: string;
+  theme: "light" | "dark";
+};
+export type MdxRuntimeStatus = {
+  running: boolean;
+  path: string | null;
+  error: string | null;
+};
 export type Session = {
   version: 1;
   tabs: string[];
@@ -42,6 +60,9 @@ export type Session = {
   splitRatio: number;
   outlineVisible: boolean;
   warnExternalLinks: boolean;
+  allowMdxExecution: boolean;
+  mdxExecutionFiles: string[];
+  mdxPlugins: MdxPlugin[];
 };
 export const defaultSession: Session = {
   version: 1,
@@ -54,6 +75,9 @@ export const defaultSession: Session = {
   splitRatio: 0.5,
   outlineVisible: true,
   warnExternalLinks: true,
+  allowMdxExecution: false,
+  mdxExecutionFiles: [],
+  mdxPlugins: [],
 };
 export type RestoredSession = {
   workspace: Workspace | null;

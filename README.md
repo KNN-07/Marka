@@ -18,7 +18,7 @@
 - **Folder workspaces:** browse `.md`, `.markdown`, and `.mdx` files, create documents and folders, and search saved files across a workspace.
 - **A capable source editor:** CodeMirror editing, independent tab undo histories, find/replace, formatting shortcuts and snippets, wrapping, and heading navigation.
 - **Live preview:** source, split, and preview layouts; GFM tables and tasks, footnotes, syntax-highlighted code, local raster images, KaTeX math, and Mermaid diagrams.
-- **Deliberately safe MDX:** bundled declarative components and literal values—not document JavaScript or project imports.
+- **Safe MDX by default:** bundled declarative components and literal values; optional, manually approved execution runs separately with local React component plugins.
 - **Save with context:** autosave for named documents, manual Save/Save As, revision-checked writes, external-change handling, and dirty-buffer close protection.
 - **Export and print:** PDF, Word documents, self-contained HTML, and plain text; a dedicated native print view keeps application controls off the page.
 - **Make it yours:** system/light/dark themes, resizable panes, and restored workspace tabs and preferences.
@@ -41,9 +41,9 @@ Use [GitHub Releases](https://github.com/KNN-07/Marka/releases) for published ve
 
 Only install artifacts you trust. These packages do not provide verified publisher identity; signing and notarization require maintainer-controlled credentials. A passing build does not replace native installation and runtime testing on each platform.
 
-## Safe MDX, by design
+## Safe MDX by default
 
-Marka parses MDX without compiling or executing document JavaScript. Try this in a `.mdx` document:
+Marka's default preview parses MDX without compiling or executing document JavaScript. Try this in a `.mdx` document:
 
 ```mdx
 # Notes worth keeping
@@ -64,9 +64,52 @@ Marka parses MDX without compiling or executing document JavaScript. Try this in
 
 Supported components are `Callout`, `Badge`, and `Tabs` with direct `Tab` children. Props accept supported literal values; tabs use native, keyboard-operable radio controls. Ordinary `.md` files keep braces as text.
 
-**Not a general-purpose MDX runtime:** imports/exports, executable expressions, spreads, custom components, event handlers, and document-provided styles are rejected. Invalid MDX displays diagnostics and retains that document's last good preview when available; source remains editable and saveable.
+**Safe mode is not a general-purpose MDX runtime:** imports/exports, executable expressions, spreads, custom components, event handlers, and document-provided styles are rejected. Invalid MDX displays diagnostics and retains that document's last good preview when available; source remains editable and saveable. Executable MDX is a separate, explicitly approved mode described below.
 
 Preview content is sanitized and rendered in an opaque sandbox. A single app-owned link handler recognizes deliberate modified clicks; document-supplied scripts and event handlers remain blocked. The frame cannot access the host DOM; browser-opening requests pass through host validation and a restricted native command. Remote images and workspace SVGs are not loaded; supported local raster images must stay within the selected workspace. Mermaid is rendered by the bundled library, with configuration overrides rejected; it is not a route to execute document code. YAML frontmatter is preserved in source but does not become executable data or preview variables. Documents are limited to 5 MiB.
+
+## Manual MDX execution and local components
+
+![Executable MDX with interactive local React components in Marka's isolated runtime](docs/assets/mdx-runtime.png)
+
+Execution is **off by default**, requires a saved `.mdx` file in a desktop workspace, and never starts automatically while you type.
+
+1. Open **Settings**, enable **Enable manual MDX execution**, then check **Allow execution for** the current file.
+2. Choose **Run MDX** in the document controls. Marka compiles the current buffer, including unsaved edits, and opens an interactive snapshot in a separate restricted process/window.
+3. Edit normally and choose **Run MDX** again when you want a new snapshot. **Stop execution** cancels compilation or terminates the runtime—even when document code hangs.
+
+Settings lists approved files, with a **Revoke** action. Disabling execution, revoking approval, changing the plugin registry, or switching workspaces stops the current runtime. Grants and component registrations are scoped to the workspace and persist with its session; they are not transferred to a different folder.
+
+### Register a local component
+
+Create a component file inside your workspace, for example `components/Counter.tsx`:
+
+```tsx
+import { useState } from "react";
+
+export default function Counter({ initial = 0 }: { initial?: number }) {
+  const [count, setCount] = useState(initial);
+  return <button onClick={() => setCount(count + 1)}>Count: {count}</button>;
+}
+```
+
+Under **Settings → Local component plugins**, register:
+
+- **Component name:** `Counter`
+- **Component file:** `components/Counter.tsx`
+- **Export name:** `default` (or the name of a named export)
+
+Use `<Counter initial={3} />` in an approved MDX file and choose **Run MDX**. Register `.jsx`, `.tsx`, or `.mdx` files; the built-in `Callout`, `Badge`, `Tabs`, and `Tab` names remain reserved. Plugins can import local JavaScript/TypeScript/JSON helpers and other MDX components. React, its JSX runtimes, ReactDOM's client API, and the MDX provider are bundled—no npm installation is required.
+
+This is a **local component system**, not an npm plugin marketplace or a Node.js environment. Remote/package imports, `node_modules`, dynamic imports, `require`, `import.meta`, top-level await, and CSS modules are unsupported. Ordinary async functions, React hooks, expressions, exports, and event handlers run in the isolated runtime. Registered files are read fresh on each Run.
+
+### Execution boundary
+
+Document and plugin code never executes in Marka's editor process or compiler worker. The runtime has its own process and private webview profile, an opaque sandbox, and no workspace/browser-opening commands. A restrictive Content Security Policy blocks ordinary network/resource loads. Only compiled local modules and approved Markdown raster images are supplied. Runtime status messages cannot request native actions. Errors appear in the runtime or editor without replacing source with an empty buffer.
+
+This is browser-process isolation, not an operating-system sandbox or a promise that arbitrary code is harmless or resource-free. Run only code you trust; use Stop if it misbehaves. Compilation is bounded to 5 MiB per source, 20 MiB/128 modules per graph, 32 registered components, and 30 seconds of active compiler work. Runtime payloads are capped at 32 MiB (8 MiB per raster image).
+
+Static preview, exports, and printing remain available in safe mode. Interactive runtime state is not exported; disable execution for the file to return to the safe rendering path. Source editing, autosave, and Save As continue to work in either mode.
 
 ## Open preview links
 
@@ -146,7 +189,7 @@ rustup target add aarch64-apple-darwin x86_64-apple-darwin
 npm run tauri -- build --target universal-apple-darwin --bundles app,dmg
 ```
 
-The `predev` and `prebuild` scripts prepare bundled KaTeX CSS/fonts automatically. No external font CDN is needed for math preview.
+The `predev` and `prebuild` scripts prepare bundled KaTeX CSS/fonts and the standalone React/MDX runtime automatically. The runtime build uses only fixed application source, never document/plugin input. No external font CDN is needed.
 
 ## CI and releases
 

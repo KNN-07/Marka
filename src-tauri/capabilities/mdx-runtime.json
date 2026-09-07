@@ -1,0 +1,6 @@
+{
+  "identifier": "mdx-runtime",
+  "description": "Allow only the isolated MDX runtime window to close itself.",
+  "windows": ["mdx-runtime"],
+  "permissions": ["core:window:allow-close"]
+}

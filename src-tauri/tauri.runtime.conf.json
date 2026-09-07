@@ -1,0 +1,15 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Marka MDX Runtime",
+  "version": "0.1.0",
+  "identifier": "dev.marka.mdx-runtime",
+  "build": { "devUrl": "http://localhost:1420", "frontendDist": "../dist" },
+  "app": {
+    "windows": [],
+    "security": {
+      "capabilities": ["mdx-runtime"],
+      "csp": "default-src 'none'; script-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src ipc: http://ipc.localhost; worker-src 'none'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'",
+      "devCsp": "default-src 'none'; script-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src ipc: http://ipc.localhost; worker-src 'none'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'"
+    }
+  }
+}

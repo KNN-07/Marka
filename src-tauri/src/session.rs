@@ -22,6 +22,12 @@ pub struct Session {
     pub outline_visible: bool,
     #[serde(default = "default_warn_external_links")]
     pub warn_external_links: bool,
+    #[serde(default)]
+    pub allow_mdx_execution: bool,
+    #[serde(default)]
+    pub mdx_execution_files: Vec<String>,
+    #[serde(default)]
+    pub mdx_plugins: Vec<crate::mdx::MdxPlugin>,
 }
 
 fn default_warn_external_links() -> bool {
@@ -41,11 +47,15 @@ impl Default for Session {
             split_ratio: 0.5,
             outline_visible: true,
             warn_external_links: default_warn_external_links(),
+            allow_mdx_execution: false,
+            mdx_execution_files: Vec::new(),
+            mdx_plugins: Vec::new(),
         }
     }
 }
 impl Session {
     pub fn validate(&self) -> Result<()> {
+        crate::mdx::validate_registry(&self.mdx_execution_files, &self.mdx_plugins)?;
         if self.version != 1
             || !["system", "light", "dark"].contains(&self.theme.as_str())
             || !["split", "source", "preview"].contains(&self.preview_mode.as_str())
@@ -103,14 +113,29 @@ pub struct AppState {
     pub workspace: WorkspaceService,
     pub session: Session,
     pub session_path: PathBuf,
+    pub mdx_runtime: crate::mdx::MdxRuntime,
     restored: bool,
 }
 impl AppState {
+    pub fn select_workspace(&mut self, root: &Path) -> Result<Workspace> {
+        self.mdx_runtime.stop()?;
+        let previous_root = self.workspace.root().map(Path::to_path_buf);
+        let workspace = self.workspace.select(root)?;
+        self.session.tabs.clear();
+        self.session.active_path = None;
+        if previous_root.as_deref() != self.workspace.root() {
+            self.session.allow_mdx_execution = false;
+            self.session.mdx_execution_files.clear();
+            self.session.mdx_plugins.clear();
+        }
+        Ok(workspace)
+    }
     pub fn new(session_path: PathBuf) -> Self {
         Self {
             workspace: WorkspaceService::default(),
             session: Session::default(),
             session_path,
+            mdx_runtime: crate::mdx::MdxRuntime::default(),
             restored: false,
         }
     }
@@ -138,7 +163,11 @@ impl AppState {
             let envelope: Envelope =
                 serde_json::from_slice(&bytes).map_err(|e| AppError::new("IO", e.to_string()))?;
             envelope.session.validate()?;
-            if envelope.root.is_none() && !envelope.session.tabs.is_empty() {
+            if envelope.root.is_none()
+                && (!envelope.session.tabs.is_empty()
+                    || !envelope.session.mdx_execution_files.is_empty()
+                    || !envelope.session.mdx_plugins.is_empty())
+            {
                 return Err(AppError::new(
                     "IO",
                     "Session has tabs but no authorized root.",
@@ -180,6 +209,7 @@ impl AppState {
                         },
                         Err(error) => {
                             self.session.tabs.clear(); self.session.active_path = None;
+                            self.session.mdx_execution_files.clear(); self.session.mdx_plugins.clear();
                             notice = Some(format!("Reopen your workspace folder: {} ({})", root.display(), error.message));
                         },
                     }
@@ -206,11 +236,44 @@ impl AppState {
             }
         }
         session.validate()?;
-        if id.is_none() && !session.tabs.is_empty() {
+        if id.is_none()
+            && (!session.tabs.is_empty()
+                || !session.mdx_execution_files.is_empty()
+                || !session.mdx_plugins.is_empty())
+        {
             return Err(AppError::new(
                 "NO_WORKSPACE",
                 "Cannot persist saved tabs without a workspace.",
             ));
+        }
+        if let Some(id) = id {
+            for path in session
+                .mdx_execution_files
+                .iter()
+                .chain(session.mdx_plugins.iter().map(|plugin| &plugin.path))
+            {
+                let already_registered = self.session.mdx_execution_files.contains(path)
+                    || self
+                        .session
+                        .mdx_plugins
+                        .iter()
+                        .any(|plugin| &plugin.path == path);
+                if already_registered {
+                    continue;
+                }
+                if !self.workspace.resolve(id, path, false, false)?.is_file() {
+                    return Err(AppError::new(
+                        "INVALID_PATH",
+                        "MDX grants and plugins must refer to saved regular files.",
+                    ));
+                }
+            }
+        }
+        if self.session.allow_mdx_execution != session.allow_mdx_execution
+            || self.session.mdx_execution_files != session.mdx_execution_files
+            || self.session.mdx_plugins != session.mdx_plugins
+        {
+            self.mdx_runtime.stop()?;
         }
         let envelope = Envelope {
             root: self.workspace.root().map(Path::to_path_buf),
